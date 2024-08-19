@@ -6,24 +6,40 @@
 
 const Connection = require('../connection');
 
+jest.mock('../connection');
+
 let con;
 
 jest.setTimeout(10000); // 10 seconds
 
-beforeAll(async () => {
+beforeAll(() => {
 
-    const key = '3hjn18oV';
-    const secret = '8q5CotqH3hZv-01-CM-X00kT2lNWdMbPcOfbx0xZ8b4';
+    const key = 'xxxxx';
+    const secret = 'yyyyy';
     const domain = 'test.deribit.com';
     const debug = false;
-    con = new Connection({key, secret, domain, debug});
-    /*
-    await con.connect().catch((error) => {
-        console.log(`${new Date} | could not connect`, error.message);
-    });
-    return;
 
-     */
+    // Mock the constructor
+    Connection.mockImplementation(() => {
+        return {
+            connected: false,
+            authenticated: false,
+            connect: jest.fn().mockImplementation(function() {
+                this.connected = true;
+                this.authenticate()
+                return Promise.resolve(true);
+            }),
+            authenticate: jest.fn().mockImplementation(function() {
+                this.authenticated = true;
+                return Promise.resolve(true);
+            }),
+            end: jest.fn().mockResolvedValue(true),
+            token: 'mockToken',
+            refreshToken: 'mockRefreshToken'
+        };
+    });
+
+    con = new Connection({key, secret, domain, debug});
 
 });
 
@@ -45,8 +61,8 @@ describe('constructor()', () => {
 
 
 describe('connect()', () => {
-    beforeAll(async () => {
-        await con.connect();
+    beforeAll(() => {
+        con.connect();
     });
 
     test('expects property connected = true', () => {

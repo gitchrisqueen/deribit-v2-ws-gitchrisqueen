@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "pretest": "npm install",
-    "test": "jest",
-    "testdebug": "node --unhandled-rejections=strict --trace-warnings --expose-gc node_modules/.bin/jest --no-cache --detectOpenHandles --runInBand",
-    "unittestdebug": "node --unhandled-rejections=strict --trace-warnings --expose-gc node_modules/.bin/jest --no-cache --detectOpenHandles --runInBand unit",
+    "test": "node --experimental-vm-modules --trace-warnings --expose-gc  node_modules/.bin/jest --no-cache --detectOpenHandles --runInBand",
+    "testdebug": "node --unhandled-rejections=strict --experimental-vm-modules --trace-warnings --expose-gc node_modules/.bin/jest --no-cache --detectOpenHandles --runInBand --debug",
+    "unittestdebug": "node --unhandled-rejections=strict --experimental-vm-modules --trace-warnings --expose-gc node_modules/.bin/jest --no-cache --detectOpenHandles --runInBand --debug unit",
     "killall": "killall node && killall jest",
     "preversion": "npm run test",
     "version": "",

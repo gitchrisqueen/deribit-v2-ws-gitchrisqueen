@@ -173,6 +173,12 @@ class Connection extends EventEmitter {
 
 
     async reconnect() {
+        if (this.reconnectingCount >= 3) {
+            this.log(`Cannot properly reconnect to Deribit. Exiting Node and restarting Docker container.`);
+            this.end();
+            process.exit(1);
+        }
+
         this.reconnecting = true;
         this.reconnectingCount++;
 
@@ -194,7 +200,7 @@ class Connection extends EventEmitter {
     }
 
     connect() {
-        (async () => await this._connect())();
+        this.connected = (async () => await this._connect())();
 
         if (this.key) {
             this.authenticate()
@@ -372,7 +378,15 @@ class Connection extends EventEmitter {
 
         }
 
-        this.ws.send(JSON.stringify(payload));
+        try {
+            this.ws.send(JSON.stringify(payload));
+        } catch (error) {
+            this.log(error);
+            await this.reconnect();
+            setTimeout(() => {
+                this.sendMessage(payload, fireAndForget);
+            }, 5000);
+        }
 
         /*
         .catch((e) => {
@@ -589,7 +603,7 @@ class Connection extends EventEmitter {
         return await this.request('private/disable_cancel_on_disconnect')
             .catch((e) => {
                 this.log(`Could not return after disable_cancel_on_disconnect() Error: `, e.message);
-               return Promise.reject(e);
+                return Promise.reject(e);
             });
     }
 
