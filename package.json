@@ -1,0 +1,43 @@
+{
+  "name": "deribit-v2-ws-gitchrisqueen",
+  "version": "1.0.25",
+  "description": "deribit v2 ws api wrapper",
+  "main": "index.js",
+  "scripts": {
+    "pretest": "npm install",
+    "test": "jest",
+    "testdebug": "node --unhandled-rejections=strict --trace-warnings --expose-gc node_modules/.bin/jest --no-cache --detectOpenHandles --runInBand",
+    "unittestdebug": "node --unhandled-rejections=strict --trace-warnings --expose-gc node_modules/.bin/jest --no-cache --detectOpenHandles --runInBand unit",
+    "killall": "killall node && killall jest",
+    "preversion": "npm run test",
+    "version": "",
+    "postversion": "git push && git push --tags && rm -rf build/temp",
+    "patch": "git fetch && git pull && npm version patch -m 'Updating with new patch'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gitchrisqueen/deribit-v2-ws-gitchrisqueen.git"
+  },
+  "keywords": [
+    "deribit",
+    "wrapper",
+    "v2",
+    "api"
+  ],
+  "author": "Christopher Queen<christopher.queen@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/gitchrisqueen/deribit-v2-ws-gitchrisqueen/issues"
+  },
+  "homepage": "https://github.com/gitchrisqueen/deribit-v2-ws-gitchrisqueen#readme",
+  "dependencies": {
+    "ws": "*",
+    "events": "*"
+  },
+  "devDependencies": {
+    "@babel/core": "*",
+    "@babel/preset-env": "*",
+    "babel-jest": "*",
+    "jest": "*"
+  }
+}

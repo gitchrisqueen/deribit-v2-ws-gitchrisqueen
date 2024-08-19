@@ -1,0 +1,87 @@
+# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
+# For more information see: https://help.github.com/actions/language-and-framework-guides/publishing-nodejs-packages
+
+name: Node.js Package
+
+on:
+  push:
+    # Publish `master` as Docker `latest` image.
+    branches: [ master ]
+jobs:
+  build:
+    name: Run Test and Update version number on success
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      - run: npm ci
+      - run:  git config --global user.name gitchrisqueen
+      - run: npm version patch -m 'Upgrade verstion patch after new code commit test(s) passed'
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: Archive code coverage results
+        if: always()
+        uses: actions/upload-artifact@v1
+        with:
+          name: code-coverage-report
+          path: coverage/clover.xml
+  cover:
+    name: Push Coverage Results to Codecov
+    needs: build
+    if: always()
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+    env:
+      OS: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download Code Coverage Report
+        uses: actions/download-artifact@v1
+        with:
+          name: code-coverage-report
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: code-coverage-report/clover.xml
+          flags: unittests
+          env_vars: OS
+          name: codecov-umbrella
+          fail_ci_if_error: true
+  publish-npm:
+    name: Publish package to NPM
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 14
+          registry-url: https://registry.npmjs.org/
+      - run: npm ci
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+
+  publish-gpr:
+    name: Publish package to github
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 14
+          registry-url: https://npm.pkg.github.com/
+      #- run: npm ci
+      #- run: npm publish
+      - uses: shawnbot/npm-publish-action@master
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
