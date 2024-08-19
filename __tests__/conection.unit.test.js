@@ -4,9 +4,10 @@
 
 //'use strict'
 
-const Connection = require('../connection');
+const Connection = require('../connection').default;
 //import Connection from '../connection';
 
+/*
 jest.mock('../connection', () => {
      // Get the actual class implementation
     const actualConnection = jest.requireActual('../connection').default;
@@ -31,6 +32,47 @@ jest.mock('../connection', () => {
 
         }
     });
+});
+*/
+
+jest.mock('../connection', () => {
+  const actualConnection = jest.requireActual('../connection');
+
+  const MockConnection = jest.fn().mockImplementation((config) => {
+    const instance = new actualConnection(config);
+
+    instance.connected = false;
+    instance.authenticated = false;
+
+    instance.connect = jest.fn().mockImplementation(function () {
+      this.connected = true;
+      this.authenticate();
+      return Promise.resolve(true);
+    });
+
+    instance.authenticate = jest.fn().mockImplementation(function () {
+      this.authenticated = true;
+      this.token = 'mockToken';
+      this.refreshToken = 'mockRefreshToken';
+      return Promise.resolve(true);
+    });
+
+     instance.end = jest.fn().mockImplementation(function () {
+      this.connected = false;
+      this.authenticated = false;
+      return Promise.resolve(true);
+    });
+
+
+
+
+    return instance;
+  });
+
+  return {
+    __esModule: true,
+    default: MockConnection
+  };
 });
 
 let con;
@@ -109,7 +151,7 @@ describe('cancel_order_by_label', () => {
 
     // Attempts to cancel an order when not connected
     it('should throw an error when attempting to cancel an order while not connected', async () => {
-        const connection = new Connection();
+        const connection = new Connection({key, secret, domain, debug});
         connection.connected = false;
         connection.reconnecting = false;
 

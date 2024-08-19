@@ -101,7 +101,7 @@ class Connection extends EventEmitter {
                 this.connected = false;
                 clearInterval(this.pingInterval);
                 if (this.reconnectingCount < 3) {
-                    this.reconnect();
+                    await this.reconnect();
                 } else {
                     this.log(`Cannot properly reconnect to Deribit. Exiting Node and restarting Docker container.`);
                     this.end();
@@ -547,7 +547,6 @@ class Connection extends EventEmitter {
                 this.log(`Could not return after sell() Error: `, e.message);
                 return Promise.reject(e);
             });
-        ;
     }
 
     async get_open_orders_by_instrument(instrument, type = "all") {
