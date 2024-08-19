@@ -53,7 +53,7 @@ class Connection extends EventEmitter {
         throw new Error(e);
     }
 
-    handleOnOpen(){
+    handleOnOpen() {
         this.connected = true;
         this.pingInterval = setInterval(this.ping, (this.heartBeat * 1000) * 5); // 5X the heart beat without a ping means connection is dead
         this.isReadyHook();
@@ -66,8 +66,8 @@ class Connection extends EventEmitter {
 
         let promise = new Promise((resolve, reject) => {
             this.ws = new WebSocket(`wss://${this.WSdomain}/ws/api/v2`);
-            this.ws.onmessage =  (message) => {
-               return this.handleWSMessage(message);
+            this.ws.onmessage = (message) => {
+                return this.handleWSMessage(message);
             }
 
             this.ws.onopen = () => {
@@ -129,7 +129,7 @@ class Connection extends EventEmitter {
         return promise;
     }
 
-    async ping() {
+    ping() {
         let start = new Date;
 
         const timeout = setTimeout(() => {
@@ -138,12 +138,13 @@ class Connection extends EventEmitter {
             this.terminate();
         }, (this.heartBeat * 1000)); // If 5X the Heartbeat goes by then we will terminate the connection because it is dead
 
-        await this.request('public/test');
+        (async () => await this.request('public/test'))();
+
         clearInterval(timeout);
     }
 
-    // terminate a connection and immediatly try to reconnect
-    async terminate() {
+    // terminate a connection and immediately try to reconnect
+    terminate() {
         if (this.DEBUG)
             this.log(new Date, ' TERMINATED WS CON');
         this.ws.terminate();
@@ -152,7 +153,7 @@ class Connection extends EventEmitter {
     }
 
     // end a connection
-    async end() {
+    end() {
         if (this.DEBUG)
             this.log(new Date, ' ENDED WS CON');
         this.subscriptions.forEach(sub => {
@@ -160,7 +161,7 @@ class Connection extends EventEmitter {
         });
         clearInterval(this.pingInterval);
         this.ws.onclose = undefined;
-        this.request('private/logout', {access_token: this.token});
+        (async () => await this.request('private/logout', {access_token: this.token}))();
         this.authenticated = false;
         this.connected = false;
         this.ws.terminate();
@@ -181,7 +182,7 @@ class Connection extends EventEmitter {
         await this.wait(5000);
         if (this.DEBUG)
             this.log(new Date, ' RECONNECTING...');
-        let p = await this.connect();
+        this.connect();
         hook();
         this.isReadyHook();
 
@@ -189,31 +190,34 @@ class Connection extends EventEmitter {
             this.subscribe(sub.type, sub.channel);
         });
 
-        return p;
+        return this.isReady;
     }
 
-    async connect() {
-        await this._connect();
+    connect() {
+        (async () => await this._connect())();
+
         if (this.key) {
-            await this.authenticate();
+            this.authenticate()
+
         }
         // Set the heartbeat (in seconds)
-        await this.request("public/set_heartbeat", {interval: this.heartBeat});
+        (async () => await this.request("public/set_heartbeat", {interval: this.heartBeat}))();
+
         //.then(async () => {
         //this.on('test_request', this.handleWSMessage);
         //});
 
     }
 
-    async authenticate() {
+    authenticate() {
         if (!this.connected) {
-            await this.connect();
+            this.connect();
         }
 
         let today = new Date();
         let date = today.getFullYear() + '_' + (today.getMonth() + 1) + '_' + today.getDate();
 
-        const resp = await this.sendMessage({
+        const resp = (async () => await this.sendMessage({
             'jsonrpc': '2.0',
             'method': 'public/auth',
             'id': this.nextId(),
@@ -223,7 +227,7 @@ class Connection extends EventEmitter {
                 'client_secret': this.secret,
                 'scope': 'session:tradingapp_docker_nodejs' + date
             }
-        });
+        }))();
 
         if (resp.error) {
             throw new Error(resp.error.message);
@@ -254,9 +258,9 @@ class Connection extends EventEmitter {
         //setTimeout(this.refreshTokenFn, resp.result.expires_in - 10 * 60 * 1000);
     }
 
-    async refreshTokenFn() {
+    refreshTokenFn() {
         this.log(`Refreshing Token Now.`);
-        const resp = await this.sendMessage({
+        const resp = (async () => await this.sendMessage({
             'jsonrpc': '2.0',
             'method': 'public/auth',
             'id': this.nextId(),
@@ -264,7 +268,7 @@ class Connection extends EventEmitter {
                 'grant_type': 'refresh_token',
                 'refresh_token': this.refreshToken
             }
-        });
+        }))();
 
         this.token = resp.result.access_token;
         this.refreshToken = resp.result.refresh_token;
@@ -301,7 +305,7 @@ class Connection extends EventEmitter {
         return foundReq;
     }
 
-    async handleWSMessage(e) {
+    handleWSMessage(e) {
         let payload;
 
         try {
@@ -345,7 +349,7 @@ class Connection extends EventEmitter {
                 throw new Error('Not connected.')
             }
 
-            await this.afterReconnect;
+            await this.reconnect();
         }
 
         let p;
@@ -403,7 +407,7 @@ class Connection extends EventEmitter {
                 throw new Error('Not connected.');
             }
 
-            await this.afterReconnect;
+            await this.reconnect();
         }
 
         if (path.startsWith('private')) {
@@ -444,7 +448,7 @@ class Connection extends EventEmitter {
     }
 
 
-    subscribe(type, channel) {
+    async subscribe(type, channel) {
 
         this.subscriptions.push({type, channel});
 
@@ -463,7 +467,8 @@ class Connection extends EventEmitter {
             'id': this.nextId()
         };
 
-        return this.sendMessage(message);
+        return await this.sendMessage(message);
+
     }
 
     async cancel_order_by_label(label) {
@@ -474,6 +479,7 @@ class Connection extends EventEmitter {
             .catch((e) => {
                 this.log(`Could not return after cancel_order_by_label() Error : `, e.message);
                 //throw new Error(`Could not return after cancel_order_by_label()`);
+                return Promise.reject(e);
             });
     }
 
@@ -485,7 +491,7 @@ class Connection extends EventEmitter {
             })
             .catch((e) => {
                 this.log(`Could not return after close_position() Error: `, e.message);
-                throw new Error(`Could not return after close_position()`);
+                return Promise.reject(e);
             });
     }
 
@@ -496,7 +502,7 @@ class Connection extends EventEmitter {
             })
             .catch((e) => {
                 this.log(`Could not return after getPosition() : `, e.message);
-                throw new Error(`Could not return after getPosition()`);
+                return Promise.reject(e);
             });
     }
 
@@ -509,7 +515,7 @@ class Connection extends EventEmitter {
         })
             .catch((e) => {
                 this.log(`Could not return after get_tradingview_chart_data() Error: `, e.message)
-                throw new Error(`Could not return after get_tradingview_chart_data()`);
+                return Promise.reject(e);
             });
     }
 
@@ -517,7 +523,7 @@ class Connection extends EventEmitter {
         return await this.request('private/buy', options)
             .catch((e) => {
                 this.log(`Could not return after buy() Error: `, e.message);
-                throw new Error(`Could not return after buy()`);
+                return Promise.reject(e);
             });
     }
 
@@ -525,7 +531,7 @@ class Connection extends EventEmitter {
         return await this.request('private/sell', options)
             .catch((e) => {
                 this.log(`Could not return after sell() Error: `, e.message);
-                throw new Error(`Could not return after sell()`);
+                return Promise.reject(e);
             });
         ;
     }
@@ -537,7 +543,7 @@ class Connection extends EventEmitter {
         })
             .catch((e) => {
                 this.log(`Could not return after get_open_orders_by_instrument() Error: `, e.message);
-                throw new Error(`Could not return after get_open_orders_by_instrument()`);
+                return Promise.reject(e);
             });
     }
 
@@ -549,7 +555,7 @@ class Connection extends EventEmitter {
         })
             .catch(e => {
                 this.log(`Could not return after get_stop_order_history() Error: `, e.message);
-                throw new Error(`Could not return after get_stop_order_history()`);
+                return Promise.reject(e);
             });
     }
 
@@ -567,7 +573,7 @@ class Connection extends EventEmitter {
         return await this.request(`private/edit`, orderEditOptions)
             .catch((e) => {
                 this.log(`Could not return after editOrder() : `, e.message);
-                throw new Error(`Could not return after editOrder()`);
+                return Promise.reject(e);
             });
     }
 
@@ -575,7 +581,7 @@ class Connection extends EventEmitter {
         return await this.request('private/enable_cancel_on_disconnect')
             .catch((e) => {
                 this.log(`Could not return after enable_cancel_on_disconnect() Error: `, e.message);
-                throw new Error(`Could not return after enable_cancel_on_disconnect()`);
+                return Promise.reject(e);
             });
     }
 
@@ -583,7 +589,7 @@ class Connection extends EventEmitter {
         return await this.request('private/disable_cancel_on_disconnect')
             .catch((e) => {
                 this.log(`Could not return after disable_cancel_on_disconnect() Error: `, e.message);
-                throw new Error(`Could not return after disable_cancel_on_disconnect()`);
+               return Promise.reject(e);
             });
     }
 
@@ -594,7 +600,7 @@ class Connection extends EventEmitter {
                 'extended': extended
             }).catch((e) => {
             this.log(`Could not return after get_account_summary() Error: `, e.message);
-            throw new Error(`Could not return after get_account_summary()`);
+            return Promise.reject(e);
         });
     }
 
@@ -606,7 +612,7 @@ class Connection extends EventEmitter {
                 'expired': expired
             }).catch((e) => {
             this.log(`Could not return after get_instruments() Error: `, e.message);
-            throw new Error(`Could not return after get_instruments()`);
+            return Promise.reject(e);
         });
     }
 
@@ -616,7 +622,7 @@ class Connection extends EventEmitter {
                 'instrument_name': instrument
             }).catch((e) => {
             this.log(`Could not return after get_book_summary_by_instrument() Error: `, e.message);
-            throw new Error(`Could not return after get_book_summary_by_instrument()`);
+            return Promise.reject(e);
         });
     }
 
@@ -626,9 +632,10 @@ class Connection extends EventEmitter {
                 'instrument_name': instrument
             }).catch((e) => {
             this.log(`Could not return after get_ticker() Error: `, e.message);
-            throw new Error(`Could not return after get_ticker()`);
+            return Promise.reject(e);
         });
     }
 
 }
+
 module.exports = Connection;
